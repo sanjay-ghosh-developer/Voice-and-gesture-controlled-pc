@@ -1,0 +1,132 @@
+#include <Wire.h>
+#include <SparkFun_APDS9960.h>
+#include <RCSwitch.h>
+
+
+RCSwitch mySwitch = RCSwitch();
+
+
+// Pins
+//sda->A4,scl->A5 on NANO
+#define APDS9960_INT    2 // Needs to be an interrupt pin
+#define Transmit  12//RF transmit pin
+const int trigger1 = 8; //Trigger pin of Ultasonic Sesnor
+const int echo1 = 9; //Echo pin of Ultasonic Sesnor
+
+// Constants
+
+// Global Variables
+SparkFun_APDS9960 apds = SparkFun_APDS9960();
+int isr_flag = 0;
+long time_taken;
+int dist,distL,distR;
+
+/*###Function to calculate distance###*/
+void calculate_distance(int trigger, int echo)
+{
+digitalWrite(trigger, LOW);
+delayMicroseconds(2);
+digitalWrite(trigger, HIGH);
+delayMicroseconds(10);
+digitalWrite(trigger, LOW);
+
+time_taken = pulseIn(echo, HIGH);
+dist= time_taken*0.034/2;
+if (dist>60){
+  dist = 60;
+  }
+//Serial.println(dist);
+if (dist>2&&dist<7){
+  Serial.println("VOLDN");
+  mySwitch.send(8, 24);
+  }
+else if (dist>9 && dist<15){
+  Serial.println("VOLUP");
+  mySwitch.send(7, 24);
+  
+  }  
+}
+/*###Function to Detect Gesture###*/
+void handleGesture() {
+    if ( apds.isGestureAvailable() ) {
+    switch ( apds.readGesture() ) {
+      case DIR_UP:
+        Serial.println("UP");
+        mySwitch.send(3, 24);
+        break;
+      case DIR_DOWN:
+        Serial.println("DOWN");
+        mySwitch.send(4, 24);
+        break;
+      case DIR_LEFT:
+        Serial.println("LEFT");
+        mySwitch.send(1, 24);
+        break;
+      case DIR_RIGHT:
+        Serial.println("RIGHT");
+        mySwitch.send(2, 24);
+        break;
+      case DIR_NEAR:
+        Serial.println("NEAR");
+        mySwitch.send(5, 24);
+        break;
+      case DIR_FAR:
+        Serial.println("FAR");
+        mySwitch.send(6, 24);
+        break;
+      default:
+        Serial.println("NONE");
+        
+    }
+  }
+}
+
+void interruptRoutine() {
+  isr_flag = 1;
+}
+
+void setup() {
+
+  // Set interrupt pin as input
+  pinMode(APDS9960_INT, INPUT);
+  // Ser pin for Ultrasonic
+  pinMode(trigger1, OUTPUT); 
+  pinMode(echo1, INPUT); 
+
+  // Initialize Serial port
+  Serial.begin(9600);
+  
+  // Initialize interrupt service routine
+  attachInterrupt(0, interruptRoutine, FALLING);
+
+  // Initialize APDS-9960 (configure I2C and initial values)
+  if ( apds.init() ) {
+    //Serial.println(F("APDS-9960 initialization complete"));
+  
+  } else {
+  //Serial.println("APDS-9960 initialization Error");    
+  }
+  
+  // Start running the APDS-9960 gesture sensor engine
+  if ( apds.enableGestureSensor(true) ) {
+    //Serial.println(F("Gesture sensor is now running"));
+  } else {
+    //Serial.println(F("Something went wrong during gesture sensor init!"));
+  }
+
+  mySwitch.enableTransmit(Transmit);
+  mySwitch.setRepeatTransmit(6);
+  
+}
+
+void loop() {
+  if( isr_flag == 1 ) {
+    detachInterrupt(APDS9960_INT);
+    handleGesture();
+    isr_flag = 0;
+    attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
+  }
+calculate_distance(trigger1,echo1);
+  
+}
+

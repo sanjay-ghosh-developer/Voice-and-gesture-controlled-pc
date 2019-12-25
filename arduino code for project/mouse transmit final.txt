@@ -1,0 +1,94 @@
+#include <Wire.h>
+#include <MPU6050.h>
+#include <RCSwitch.h>
+
+RCSwitch mySwitch = RCSwitch();
+
+MPU6050 mpu;
+
+int Lclick = 11;
+int Rclick = 9;
+
+void setup() 
+{
+  Serial.begin(115200);
+  while(!mpu.begin(MPU6050_SCALE_2000DPS, MPU6050_RANGE_2G))
+  {
+    Serial.println("Could not find a valid MPU6050 sensor, check wiring!");
+    delay(500);
+  }
+  
+  checkSettings();
+
+
+  mySwitch.enableTransmit(12);
+  mySwitch.setRepeatTransmit(5);
+
+  pinMode(Lclick, INPUT);
+  pinMode(Rclick, INPUT);
+}
+
+void checkSettings()
+{
+  Serial.println();
+  
+  Serial.print(" * Sleep Mode:            ");
+  Serial.println(mpu.getSleepEnabled() ? "Enabled" : "Disabled");
+  
+  Serial.print(" * Clock Source:          ");
+  switch(mpu.getClockSource())
+  {
+    case MPU6050_CLOCK_KEEP_RESET:     Serial.println("Stops the clock and keeps the timing generator in reset"); break;
+    case MPU6050_CLOCK_EXTERNAL_19MHZ: Serial.println("PLL with external 19.2MHz reference"); break;
+    case MPU6050_CLOCK_EXTERNAL_32KHZ: Serial.println("PLL with external 32.768kHz reference"); break;
+    case MPU6050_CLOCK_PLL_ZGYRO:      Serial.println("PLL with Z axis gyroscope reference"); break;
+    case MPU6050_CLOCK_PLL_YGYRO:      Serial.println("PLL with Y axis gyroscope reference"); break;
+    case MPU6050_CLOCK_PLL_XGYRO:      Serial.println("PLL with X axis gyroscope reference"); break;
+    case MPU6050_CLOCK_INTERNAL_8MHZ:  Serial.println("Internal 8MHz oscillator"); break;
+  }
+  
+  Serial.print(" * Accelerometer:         ");
+  switch(mpu.getRange())
+  {
+    case MPU6050_RANGE_16G:            Serial.println("+/- 16 g"); break;
+    case MPU6050_RANGE_8G:             Serial.println("+/- 8 g"); break;
+    case MPU6050_RANGE_4G:             Serial.println("+/- 4 g"); break;
+    case MPU6050_RANGE_2G:             Serial.println("+/- 2 g"); break;
+  }  
+
+  Serial.print(" * Accelerometer offsets: ");
+  Serial.print(mpu.getAccelOffsetX());
+  Serial.print(" / ");
+  Serial.print(mpu.getAccelOffsetY());
+  Serial.print(" / ");
+  Serial.println(mpu.getAccelOffsetZ());
+  
+  Serial.println();
+}
+
+void loop()
+{
+  //Vector rawAccel = mpu.readRawAccel();
+  Vector normAccel = mpu.readNormalizeAccel();
+
+  int xval =normAccel.XAxis/3 + 5;
+  int yval =normAccel.YAxis/2 + 5;
+if((xval<4 || xval>5)||((yval<4 || yval>5 )))
+{
+  
+  int RCval = digitalRead(Rclick);
+  int LCval = digitalRead(Lclick);
+
+  int T = 1000*xval + 100*yval + 10*RCval + LCval;
+  
+ Serial.println(T);
+  mySwitch.send(T, 24);
+  
+}
+  //delay(1000);  
+  
+
+
+  //delay(10);
+}
+
